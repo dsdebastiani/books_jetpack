@@ -12,30 +12,28 @@ import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProviders
+import dominando.android.livros.common.BaseFragment
 import dominando.android.livros.common.FilePicker
 import dominando.android.livros.databinding.FragmentBookFormBinding
 import dominando.android.presentation.BookFormViewModel
-import dominando.android.presentation.BookVmFactory
 import dominando.android.presentation.ViewState
 import dominando.android.presentation.binding.Book
 import dominando.android.presentation.binding.MediaType
 import dominando.android.presentation.binding.Publisher
+import org.koin.android.ext.android.inject
 
 class BookFormFragment : BaseFragment() {
-    private val viewModel: BookFormViewModel by lazy {
-        ViewModelProviders.of(this,
-                BookVmFactory(requireActivity().application)
-        ).get(BookFormViewModel::class.java)
-    }
+    private val viewModel: BookFormViewModel by inject()
     private lateinit var binding: FragmentBookFormBinding
     private val filePicker: FilePicker by lazy {
         FilePicker(requireContext())
     }
 
-    override fun onCreateView(inflater: LayoutInflater,
-                              container: ViewGroup?,
-                              savedInstanceState: Bundle?): View? {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
         binding = DataBindingUtil.inflate(
                 inflater, R.layout.fragment_book_form, container, false
         )
@@ -53,7 +51,8 @@ class BookFormFragment : BaseFragment() {
                 Publisher("2", "Outra")
         )
         binding.content.presenter = this
-        binding.setLifecycleOwner(this)
+        binding.lifecycleOwner = this
+        lifecycle.addObserver(viewModel)
         init()
     }
 
@@ -65,7 +64,7 @@ class BookFormFragment : BaseFragment() {
     }
 
     private fun init() {
-        viewModel.getState().observe(this, Observer { event ->
+        viewModel.getState().observe(viewLifecycleOwner, Observer { event ->
             event?.peekContent()?.let { state ->
                 when (state.status) {
                     ViewState.Status.LOADING -> {
@@ -76,7 +75,7 @@ class BookFormFragment : BaseFragment() {
                         binding.content.btnSave.isEnabled = true
                         binding.content.progressBar.visibility = View.GONE
                         showMessageSuccess()
-                        navController.popBackStack()
+                        router.back()
                     }
                     ViewState.Status.ERROR -> {
                         event.consumeEvent()

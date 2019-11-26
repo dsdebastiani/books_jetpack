@@ -1,22 +1,23 @@
 package dominando.android.livros
 
 import android.os.Bundle
-import android.view.*
+import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModelProviders
+import dominando.android.livros.common.BaseFragment
 import dominando.android.livros.databinding.FragmentBookDetailsBinding
 import dominando.android.presentation.BookDetailsViewModel
-import dominando.android.presentation.BookVmFactory
 import dominando.android.presentation.ViewState
 import dominando.android.presentation.binding.Book
+import org.koin.android.ext.android.inject
 
 class BookDetailsFragment : BaseFragment() {
-    private val viewModel: BookDetailsViewModel by lazy {
-        ViewModelProviders.of(this,
-                BookVmFactory(requireActivity().application)
-        ).get(BookDetailsViewModel::class.java)
-    }
+    private val viewModel: BookDetailsViewModel by inject()
 
     private lateinit var binding: FragmentBookDetailsBinding
 
@@ -42,11 +43,11 @@ class BookDetailsFragment : BaseFragment() {
     }
 
     private fun init() {
-        viewModel.getState().observe(this, Observer { viewState ->
+        viewModel.getState().observe(viewLifecycleOwner, Observer { viewState ->
             when (viewState.status) {
                 ViewState.Status.SUCCESS -> binding.book = viewState.data
                 ViewState.Status.LOADING -> {} /* TODO */
-                ViewState.Status.ERROR -> {}/* TODO */
+                ViewState.Status.ERROR -> {} /* TODO */
             }
         })
         val book = arguments?.getParcelable<Book>("book")
@@ -55,18 +56,15 @@ class BookDetailsFragment : BaseFragment() {
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?, inflater: MenuInflater?) {
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         super.onCreateOptionsMenu(menu, inflater)
-        inflater?.inflate(R.menu.detail, menu)
+        inflater.inflate(R.menu.detail, menu)
     }
 
-    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
-        if (item?.itemId == R.id.menu_edit_book) {
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == R.id.menu_edit_book) {
             binding.book?.let {
-                val args = Bundle().apply {
-                    putParcelable("book", it)
-                }
-                navController.navigate(R.id.action_details_to_form, args)
+                router.showBookForm(it)
             }
             return true
         }

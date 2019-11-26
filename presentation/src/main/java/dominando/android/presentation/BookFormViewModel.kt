@@ -1,15 +1,26 @@
 package dominando.android.presentation
 
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.OnLifecycleEvent
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dominando.android.domain.interactor.SaveBookUseCase
+import dominando.android.presentation.binding.Book as BookBinding
 import dominando.android.presentation.binding.BookConverter
 import dominando.android.presentation.livedata.LiveEvent
 import java.io.File
-import dominando.android.presentation.binding.Book as BookBinding
+import java.lang.Exception
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-class BookFormViewModel(private val useCase: SaveBookUseCase) : ViewModel() {
+class BookFormViewModel(
+    private val saveBookUseCase: SaveBookUseCase
+) : ViewModel(), LifecycleObserver {
+
     var book: BookBinding? = null
     var tempImageFile: File? = null
         set(value) {
@@ -25,28 +36,28 @@ class BookFormViewModel(private val useCase: SaveBookUseCase) : ViewModel() {
 
     fun saveBook(book: BookBinding) {
         state.postValue(LiveEvent(ViewState(ViewState.Status.LOADING)))
-        useCase.execute(BookConverter.toData(book),
-                {
-                    shouldDeleteImage = false
-                    state.postValue(LiveEvent(ViewState(ViewState.Status.SUCCESS)))
-                },
-                { e ->
-                    state.postValue(LiveEvent(ViewState(ViewState.Status.ERROR, error = e)))
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    saveBookUseCase.execute(BookConverter.toData(book))
                 }
-        )
-    }
-
-    private fun deleteTempPhoto() {
-        if (shouldDeleteImage) {
-            tempImageFile?.let {
-                if (it.exists()) it.delete()
+                shouldDeleteImage = false
+                state.postValue(LiveEvent(ViewState(ViewState.Status.SUCCESS)))
+            } catch (e: Exception) {
+                state.postValue(LiveEvent(ViewState(ViewState.Status.ERROR, error = e)))
             }
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        deleteTempPhoto()
-        useCase.dispose()
+    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    private fun deleteTempPhoto() {
+        if (shouldDeleteImage) {
+            tempImageFile?.let {
+                if (it.exists())
+                    viewModelScope.launch(Dispatchers.IO) {
+                        it.delete()
+                    }
+            }
+        }
     }
 }
